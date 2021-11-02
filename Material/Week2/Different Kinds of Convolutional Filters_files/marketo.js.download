@@ -1,0 +1,1 @@
+(function($){$(document).ready(function(){if(Munchkin!==undefined){Munchkin.init(marketo_vars.munchkin_id);}});}(jQuery));

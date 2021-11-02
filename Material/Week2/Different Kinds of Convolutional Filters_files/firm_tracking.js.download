@@ -1,0 +1,122 @@
+(function(w) {
+  var config = {"metricsLabels":{"contentBoards":"TR Content Board","personalizations":"TR Personalization","audiences":"TR Audience","campaigns":"TR Campaign"},"hitTypes":{"contentBoards":"event","audiences":"event","personalizations":"event","campaigns":"event"},"shouldTrackOrgAssets":false,"firmTrackProvider":"custom","triblioVisitorId":"GPBz90dpK3uawbDCNCr29tdv"};
+  var triblioVisitorId = config.triblioVisitorId;
+  var firmographicRecord =  {"name":"(Non-Company Visitor)","sicCode":"N/A","isIsp":true,"employees":"N/A","revenue":"N/A","city":"N/A","region":"N/A","country":"N/A","domain":"N/A","naicCode":"N/A","employeesCode":"N/A","revenueCode":"N/A","industry":"N/A","subIndustry":"N/A"};
+  var shouldTrackOrgAssets = config.shouldTrackOrgAssets;
+  var eIdsToNames = {"personalizations":{"26pv":"Gilead Tech Alliances","ej2Z":"Webinar","3D0D":"Stage 4 Drip","gndd":"Clinical Dev. Optimizer Page","MEnJ":"CTI Video","LpR6":"SFDC Updates","Qv22":"DPharm Conference","Amw4":"Demo Session Video","Lx5d":"AI Innovation Summit - CA","wDdX":"Life Sciences CTA","0m5o":"MQA Date","ql1l":"First Activity Date","eX38":"First Activity Date","4mnX":"MQA Date","8OPe":"Is MQA","9K7z":"DIA Event","QmJK":"Boston Video","egAP":"AI Summit","Pp2B":"Last Activity Date"},"campaigns":{"MeQ2":"SFDC Field Updates","bXXk":"Life Sciences","q0bJ":"Stage 4 Awareness","DqM9":"Vidyard Videos"},"contentHubs":{"OgoP":"Image Upload","Og7X":"Sales Page Template"},"audiences":{"1540":"TPO Display Advertising","Oagj":"Stage 4 Opps","gWJD":"Everyone","DGx7":"No One (Insurance)","Qx02":"New England","4b0E":"ICON Targeted Accounts","aJm7":"No One","WDav":"Broad Industry - Life Sciences","R2Ww":"Life Sciences Display Ad Domains","Ab5o":"Roundtable Domains July 2018","gWaq":"Inside Sales Accounts","kMkj":"Test - Talkd.co","AdAe":"Key Insurance Targets","lzOw":"SFDC Prospect Accounts","owad":"Insurance Accounts","DGG8":"@Data Sync","5MPL":"Roundtable Domains Q118","4Q2K":"Competitors","K7Qe":"TPO Accounts","mlna":"Broad Industry - CPG","Abje":"CDO and TPO Accounts","3znB":"Insurance","7GqO":"Juno Target Account","EOWK":"CPG Display Ad Domains","pwdX":"Boston","Adaz":"All CRM Accounts","v8WB":"CPG / Retail Target Accounts","KXLK":"Investor Search","EeDn":"Open Opportunities","JmJq":"Default","Q7YY":"Finance and Banking","w8e3":"Target Accounts","WLAv":"California","OJEg":"Financial Services","n7nY":"Gilead & Microsoft","8Pae":"SFCD Pharma and Biotech","jKYD":"Life Sciences","P7Am":"AI Summit","b0oZ":"DIA Event","lYnG":"CDO - Inside Sales and Juno"}};
+
+  /*some ppl want our visitor id available immediately ie GE with Adobe Analyitcs
+  GE wants to use a custom firm track to post to adobe and GA. Adding this storage set here
+  because it doesnt hurt. */
+  if(sessionStorage && sessionStorage.setItem){
+    sessionStorage.setItem("s_triblio_visitor_id", triblioVisitorId);
+  }
+
+  if(!w.Triblio){ w.Triblio = {}; }
+  if(w.Triblio.onAccountIdentificationReady){ w.Triblio.onAccountIdentificationReady(firmographicRecord); }
+  w.Triblio.getAccountIdentification = function(){
+    return firmographicRecord;
+  };
+
+  if(!w.TriblioAssetNameTracking) w.TriblioAssetNameTracking = {queued:[]};
+
+  var CustomTracker = function(){};
+
+  CustomTracker.prototype.run = function(){
+    this.postFirmographicData();
+    this.checkAssetNamesQueue();
+  };
+
+  CustomTracker.prototype.postFirmographicData = function(){
+    var data = {"name":"(Non-Company Visitor)","sicCode":"N/A","isIsp":true,"employees":"N/A","revenue":"N/A","city":"N/A","region":"N/A","country":"N/A","domain":"N/A","naicCode":"N/A","employeesCode":"N/A","revenueCode":"N/A","industry":"N/A","subIndustry":"N/A"};
+var count = 0;
+
+function checkForTracker(callback){
+  count++;
+
+  if(count < 100 && typeof __gaTracker !== 'undefined'){
+    callback();
+  }
+  else if(count < 100){
+    setTimeout(function(){
+      checkForTracker(callback);
+    }, 5);
+  }
+}
+
+checkForTracker(function(){
+  var trackers = __gaTracker.getAll();
+  var tracker;
+  trackers.forEach(function(t){
+   if(t.get("trackingId") === "UA-48306757-1"){
+      __gaTracker("set", "dimension5", data.domain);
+      __gaTracker("set", "dimension6", "(not set)");
+      __gaTracker("set", "dimension7", "(not set)");
+      __gaTracker("send", "event", {nonInteraction: true});
+    }
+  });
+});
+  };
+
+  CustomTracker.prototype.checkAssetNamesQueue = function(){
+    var that = this;
+
+    if(w.TriblioAssetNameTracking.queued){
+      w.TriblioAssetNameTracking.queued.forEach(function(ids){
+        that.postAssetNames(ids);
+      });
+    }
+  };
+
+  CustomTracker.prototype.postAssetNames = function(ids){
+    if(shouldTrackOrgAssets){
+      /*
+        user needs to handle waiting for third party analytics library to load if necessary
+      */
+      var data = _getAssetNamesFromIds(ids);
+
+      data.forEach(function(d){
+      ga("send",{
+        "hitType": d.hitType,
+        "eventCategory": d.metricsLabel,
+        "eventLabel": d.name,
+        "nonInteraction": true
+      });
+    });
+  
+    }
+  };
+
+  function _getAssetNamesFromIds(data){
+    var lookup = eIdsToNames;
+    if(!lookup || !Object.keys(lookup).length){
+      lookup = {personalizations:{}, contentHubs: {}, audiences:{}, campaigns:{}};
+    }
+    var names = [];
+
+    if(data.type !== "board" && data.personalizationId && data.audienceSegmentId && data.campaignId){
+      var personalizationIds = data.personalizationId.split(",");
+      var audienceSegmentIds = data.audienceSegmentId.split(",");
+      var campaignIds = data.campaignId.split(",");
+
+      personalizationIds.forEach(function(pId, index){
+        var hasPersonalization = (personalizationIds[index] && lookup.personalizations[personalizationIds[index]]) ? true : false;
+        var hasAudience = (audienceSegmentIds[index] && lookup.audiences[audienceSegmentIds[index]]) ? true : false;
+        var hasCampaign = (campaignIds[index] && lookup.campaigns[campaignIds[index]]) ? true : false;
+
+        names.push({
+          campaign: lookup.campaigns[campaignIds[index]],
+          audience: lookup.audiences[audienceSegmentIds[index]],
+          personalization: lookup.personalizations[personalizationIds[index]],
+          action: data.action //impression or click
+        });
+      });
+    }
+    return names;
+  }
+
+  var tracker = new CustomTracker();
+  w.TriblioAssetNameTracking.postAssetNames = tracker.postAssetNames;
+
+  tracker.run();
+}(window));
